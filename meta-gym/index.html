@@ -19,7 +19,8 @@
     --accent:#eb6834; --accent-ink:#ffffff;
     --leo:#2a78d6; --joana:#1baf7a;
     --good:#0ca30c; --critical:#d03b3b;
-    --brand-ink:#141311;
+    --brand-ink:#141311; --brand-paper:#f5f3ef; --brand-muted:#9a968c; --brand-hair:rgba(245,243,239,0.12);
+    --brand-accent:#eb6834;
   }
   @media (prefers-color-scheme: dark){
     :root:not([data-theme="light"]){
@@ -95,6 +96,7 @@
   .brand-mark{
     width: 30px; height:30px; border-radius:8px; background: var(--brand-ink);
     display:flex; align-items:center; justify-content:center; padding:6px; flex:none;
+    box-shadow: 0 2px 10px rgba(235,104,52,0.25);
   }
   .brand-mark svg{ width:100%; height:100%; display:block; }
   .brand-name{ font-size: 15px; font-weight:800; letter-spacing:-0.01em; }
@@ -107,12 +109,14 @@
   .nav a{
     flex: none; text-decoration:none; font-size:12.5px; font-weight:700; color: var(--ink-2);
     background: var(--surface); border:1px solid var(--border); padding:7px 12px; border-radius:999px;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
   }
+  .nav a:hover{ background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color:var(--accent); border-color:transparent; }
 
   section{ padding: 22px 0 0; }
   .card{
     background: var(--surface); border:1px solid var(--border); border-radius:16px;
-    padding: 18px; margin-top: 12px;
+    padding: 18px; margin-top: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   }
   .card-title{ font-size:15px; font-weight:800; margin: 0 0 2px; }
   .card-sub{ font-size:12.5px; color:var(--muted); margin: 0 0 14px; }
@@ -123,21 +127,29 @@
 
   /* Hero */
   .hero{
-    display:flex; align-items:center; gap:20px; padding:20px; border-radius:18px;
-    background: var(--surface); border:1px solid var(--border);
+    display:flex; align-items:center; gap:24px; padding:28px 24px; border-radius:22px;
+    background:
+      radial-gradient(85% 100% at 100% 0%, rgba(235,104,52,0.20), transparent 60%),
+      var(--brand-ink);
+    position:relative; overflow:hidden;
   }
-  .ring-wrap{ position:relative; flex:none; width:118px; height:118px; }
+  .hero::before{
+    content:""; position:absolute; right:-24px; bottom:-34px; width:190px; height:190px; z-index:0;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M24 52 L40 68 L78 22' fill='none' stroke='white' stroke-width='12' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='78' cy='22' r='8' fill='white'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-size:contain; opacity:0.06; pointer-events:none; transform:rotate(-8deg);
+  }
+  .ring-wrap{ position:relative; z-index:1; flex:none; width:140px; height:140px; }
   .ring-wrap .ring-num{
     position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
   }
-  .ring-num .n{ font-size: 26px; font-weight:900; line-height:1; }
-  .ring-num .d{ font-size: 10.5px; color:var(--muted); font-weight:700; margin-top:2px; }
-  .hero-stats{ flex:1; display:flex; flex-direction:column; gap:8px; min-width:0; }
-  .hero-stats .h-year{ font-size: 12px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
-  .hero-stats .h-title{ font-size:19px; font-weight:800; }
-  .hero-metrics{ display:flex; gap:16px; margin-top:2px; flex-wrap:wrap; }
-  .hmetric .v{ font-size:16px; font-weight:800; }
-  .hmetric .l{ font-size:10.5px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .ring-num .n{ font-size: 32px; font-weight:900; line-height:1; color:var(--brand-paper); }
+  .ring-num .d{ font-size: 11px; color:var(--brand-muted); font-weight:700; margin-top:3px; text-transform:uppercase; letter-spacing:.04em; }
+  .hero-stats{ flex:1; display:flex; flex-direction:column; gap:9px; min-width:0; position:relative; z-index:1; }
+  .hero-stats .h-year{ font-size: 11.5px; color:var(--brand-accent); font-weight:700; text-transform:uppercase; letter-spacing:.1em; }
+  .hero-stats .h-title{ font-size:20px; font-weight:800; color:var(--brand-paper); text-wrap:balance; }
+  .hero-metrics{ display:flex; gap:18px; margin-top:4px; flex-wrap:wrap; }
+  .hmetric .v{ font-size:17px; font-weight:800; color:var(--brand-paper); }
+  .hmetric .l{ font-size:10.5px; color:var(--brand-muted); font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
 
   /* Checkin */
   .daybadge{
@@ -268,29 +280,33 @@
   .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
 
   .overlay{
-    position:fixed; inset:0; background: color-mix(in srgb, var(--page) 92%, transparent); backdrop-filter: blur(4px);
-    display:flex; align-items:center; justify-content:center; z-index:80; padding:20px;
+    position:fixed; inset:0; z-index:80; padding:24px; overflow-y:auto;
+    display:flex; align-items:center; justify-content:center;
+    background:
+      radial-gradient(60% 46% at 50% 8%, rgba(235,104,52,0.22), transparent 70%),
+      var(--brand-ink);
   }
-  .gate-card{
-    background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:28px 24px;
-    max-width:380px; width:100%; text-align:center;
-  }
-  .gate-mark{
-    width:56px; height:56px; border-radius:14px; background:var(--brand-ink);
-    display:flex; align-items:center; justify-content:center; margin:0 auto 16px; padding:12px;
-  }
+  .gate-card{ max-width:380px; width:100%; text-align:center; padding:24px 0; }
+  .gate-mark{ width:88px; height:88px; margin:0 auto 22px; filter:drop-shadow(0 0 28px rgba(235,104,52,0.35)); }
   .gate-mark svg{ width:100%; height:100%; display:block; }
-  .gate-title{ font-size:20px; font-weight:900; margin-bottom:4px; }
-  .gate-tagline{ font-size:12px; color:var(--accent); font-weight:600; font-style:italic; margin-bottom:16px; }
-  .gate-sub{ font-size:13.5px; color:var(--ink-2); margin-bottom:22px; line-height:1.5; }
+  .gate-title{
+    font-size:30px; font-weight:900; margin-bottom:8px; color:var(--brand-paper);
+    text-transform:uppercase; letter-spacing:-0.01em; font-family:"Archivo Black","Arial Black",sans-serif;
+  }
+  .gate-tagline{ font-size:13px; color:var(--brand-accent); font-weight:600; font-style:italic; margin-bottom:20px; }
+  .gate-sub{ font-size:13.5px; color:var(--brand-muted); margin-bottom:26px; line-height:1.6; max-width:32ch; margin-left:auto; margin-right:auto; }
   .gate-pick{ display:flex; flex-direction:column; gap:10px; }
   .pickbtn{
-    display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:14px;
-    border:1px solid var(--border); background:var(--surface-2); cursor:pointer; text-align:left;
+    display:flex; align-items:center; gap:14px; padding:16px 18px; border-radius:16px;
+    border:1px solid var(--brand-hair); background:rgba(245,243,239,0.05); cursor:pointer; text-align:left;
+    transition: background .15s ease, border-color .15s ease, transform .08s ease;
   }
-  .pickbtn .av{ width:34px; height:34px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; }
-  .pickbtn .pn{ font-weight:800; font-size:14.5px; }
-  .pickbtn .ps{ font-size:11.5px; color:var(--muted); }
+  .pickbtn:hover{ background:rgba(245,243,239,0.09); border-color:rgba(245,243,239,0.22); }
+  .pickbtn:active{ transform:scale(0.98); }
+  .pickbtn .av{ width:38px; height:38px; border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; }
+  .pickbtn .pn{ font-weight:800; font-size:15px; color:var(--brand-paper); }
+  .pickbtn .ps{ font-size:11.5px; color:var(--brand-muted); margin-top:1px; }
+  .gate-foot{ margin-top:28px; font-size:11px; color:var(--brand-muted); opacity:0.75; }
 
   details.plancard summary{ cursor:pointer; list-style:none; display:flex; align-items:center; justify-content:space-between; }
   details.plancard summary::-webkit-details-marker{ display:none; }
@@ -334,8 +350,8 @@ var ROOT = "metagym";
   var CACHE_KEY = "metagym_cache_v1";
   var GYMS = ["Condomínio","Peralta","Hage","Cristal","Crossfit"];
   var LOGO_MARK_SVG = '<svg viewBox="0 0 100 100" role="img" aria-label="TrilhaFit">'+
-    '<path d="M24 52 L40 68 L78 22" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>'+
-    '<circle cx="78" cy="22" r="8" fill="var(--accent)"/>'+
+    '<path d="M24 52 L40 68 L78 22" fill="none" stroke="var(--brand-accent)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>'+
+    '<circle cx="78" cy="22" r="8" fill="var(--brand-accent)"/>'+
   '</svg>';
   var MUSCLES = ["Peito","Costas","Ombro","Bíceps","Tríceps","Perna","Glúteo","Core","Cardio"];
   var PEOPLE = {
@@ -683,7 +699,7 @@ var ROOT = "metagym";
     size = size||118; stroke = stroke||11;
     var r = (size-stroke)/2, c = 2*Math.PI*r, off = c*(1-Math.max(0,Math.min(pct,1)));
     return '<svg width="'+size+'" height="'+size+'" viewBox="0 0 '+size+' '+size+'" role="img" aria-hidden="true">'+
-      '<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="var(--grid)" stroke-width="'+stroke+'"/>'+
+      '<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="rgba(245,243,239,0.14)" stroke-width="'+stroke+'"/>'+
       '<circle cx="'+size/2+'" cy="'+size/2+'" r="'+r+'" fill="none" stroke="'+color+'" stroke-width="'+stroke+'" stroke-linecap="round" stroke-dasharray="'+c+'" stroke-dashoffset="'+off+'" transform="rotate(-90 '+(size/2)+' '+(size/2)+')" style="transition:stroke-dashoffset .5s ease"/>'+
     '</svg>';
   }
@@ -793,9 +809,10 @@ var ROOT = "metagym";
       '<div class="gate-pick">'+
         Object.keys(PEOPLE).map(function(k){
           var pp = PEOPLE[k];
-          return '<button class="pickbtn" data-pick="'+k+'">'+avatarHTML(k,34)+'<span><span class="pn">'+pp.name+'</span><br/><span class="ps">Marcar treinos como '+pp.name+'</span></span></button>';
+          return '<button class="pickbtn" data-pick="'+k+'">'+avatarHTML(k,40)+'<span><span class="pn">'+pp.name+'</span><br/><span class="ps">Marcar treinos como '+pp.name+'</span></span></button>';
         }).join('') +
       '</div>'+
+      '<div class="gate-foot">Sem senha, sem conta — sua escolha fica só neste aparelho</div>'+
     '</div></div>';
   }
 
@@ -814,7 +831,7 @@ var ROOT = "metagym";
   function renderHero(me, stats){
     var color = PEOPLE[me].color;
     return '<section id="sec-hoje"><div class="hero">'+
-      '<div class="ring-wrap">'+ ringSVG(stats.pct, color) +
+      '<div class="ring-wrap">'+ ringSVG(stats.pct, color, 140, 13) +
         '<div class="ring-num"><span class="n num display">'+stats.count+'</span><span class="d">de '+stats.goal+'</span></div>'+
       '</div>'+
       '<div class="hero-stats">'+
