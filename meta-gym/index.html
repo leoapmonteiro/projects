@@ -199,6 +199,7 @@
   .hmeta{ font-size:12px; color:var(--muted); margin-top:2px; }
   .hmuscles{ display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
   .htag{ font-size:10.5px; font-weight:700; color:var(--ink-2); background:var(--surface-2); border-radius:6px; padding:2px 7px; }
+  .hobs{ font-size:12.5px; color:var(--ink-2); font-style:italic; margin-top:6px; line-height:1.4; }
   .hundo{ flex:none; background:none; border:none; color:var(--critical); font-size:11.5px; font-weight:700; cursor:pointer; }
 
   .toast{
@@ -568,6 +569,7 @@
           '<div><b>'+escapeHtml(entry.tipoLabel||"Treino")+'</b></div>'+
           '<div>'+escapeHtml(entry.academia||"—")+(entry.peso ? " · "+parseFloat(entry.peso).toFixed(1).replace(".",",")+" kg" : "")+'</div>'+
           (muscTags ? '<div class="hmuscles">'+muscTags+'</div>' : '') +
+          (entry.obs ? '<div class="hobs">"'+escapeHtml(entry.obs)+'"</div>' : '') +
         '</div>'+
         '<button class="btn btn-sm" style="margin-top:14px;color:var(--critical);" id="btn-undo">Desfazer marcação de hoje</button>'+
       '</div></section>';
@@ -672,6 +674,7 @@
             '<div class="htype">'+escapeHtml(c.tipoLabel||"Treino")+'</div>'+
             '<div class="hmeta">'+escapeHtml(c.academia||"—")+(c.peso? " · "+parseFloat(c.peso).toFixed(1).replace(".",",")+" kg":"")+'</div>'+
             ((c.musculos&&c.musculos.length) ? '<div class="hmuscles">'+c.musculos.map(function(m){return '<span class="htag">'+escapeHtml(m)+'</span>';}).join('')+'</div>' : '')+
+            (c.obs ? '<div class="hobs">"'+escapeHtml(c.obs)+'"</div>' : '') +
           '</div>'+
           '<button class="hundo" data-undo="'+c.id+'">remover</button>' +
         '</div>';
