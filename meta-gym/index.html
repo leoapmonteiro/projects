@@ -200,7 +200,10 @@
   .hmuscles{ display:flex; gap:5px; flex-wrap:wrap; margin-top:6px; }
   .htag{ font-size:10.5px; font-weight:700; color:var(--ink-2); background:var(--surface-2); border-radius:6px; padding:2px 7px; }
   .hobs{ font-size:12.5px; color:var(--ink-2); font-style:italic; margin-top:6px; line-height:1.4; }
-  .hundo{ flex:none; background:none; border:none; color:var(--critical); font-size:11.5px; font-weight:700; cursor:pointer; }
+  .hactions{ display:flex; flex-direction:column; gap:7px; align-items:flex-end; flex:none; padding-left:8px; }
+  .hundo{ background:none; border:none; font-size:11.5px; font-weight:700; cursor:pointer; }
+  .hundo.danger{ color:var(--critical); }
+  .hundo.neutral{ color:var(--ink-2); }
 
   .toast{
     position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(12px);
@@ -353,6 +356,7 @@ var ROOT = "metagym";
   var db = loadCache();
   var identity = getIdentity();
   var draft = { tipo:null, musculos:[], academia:null, academiaCustom:"", peso:"", obs:"", showPeso:false, showCustomGym:false };
+  var editing = null; // { id, date } of the checkin currently being edited, or null
 
   // ---------- utils ----------
   function pad(n){ return n<10 ? "0"+n : ""+n; }
@@ -539,7 +543,7 @@ var ROOT = "metagym";
       renderNav() +
       '<div class="wrap">' +
         renderHero(me, stats) +
-        renderCheckin(me, done, entry, plan) +
+        renderCheckin(me, done, entry, plan, editing) +
         renderCompare(me, other, stats, otherStats) +
         renderInsights(me, stats) +
         renderPlan(me, plan) +
@@ -598,27 +602,11 @@ var ROOT = "metagym";
     '</div></section>';
   }
 
-  function renderCheckin(me, done, entry, plan){
-    var color = PEOPLE[me].color;
-    if(done){
-      var muscTags = (entry.musculos||[]).map(function(m){ return '<span class="htag">'+escapeHtml(m)+'</span>'; }).join('');
-      return '<section><div class="card">'+
-        '<span class="daybadge done">✓ Treino de hoje registrado</span>'+
-        '<div class="doneinfo">'+
-          '<div><b>'+escapeHtml(entry.tipoLabel||"Treino")+'</b></div>'+
-          '<div>'+escapeHtml(entry.academia||"—")+(entry.peso ? " · "+parseFloat(entry.peso).toFixed(1).replace(".",",")+" kg" : "")+'</div>'+
-          (muscTags ? '<div class="hmuscles">'+muscTags+'</div>' : '') +
-          (entry.obs ? '<div class="hobs">"'+escapeHtml(entry.obs)+'"</div>' : '') +
-        '</div>'+
-        '<button class="btn btn-sm" style="margin-top:14px;color:var(--critical);" id="btn-undo">Desfazer marcação de hoje</button>'+
-      '</div></section>';
-    }
-    return '<section><div class="card" id="checkin-card">'+
-      '<span class="daybadge pending">Treino de hoje ainda não marcado</span>'+
-      '<div class="field-label">Tipo de treino</div>'+
+  function renderCheckinFields(plan){
+    return '<div class="field-label">Tipo de treino</div>'+
       '<div class="row" id="type-row">'+
         plan.dias.map(function(d,i){ return '<button class="chip" data-quick="'+i+'" aria-pressed="'+(draft.tipo===d.label)+'">'+d.label.split(" — ")[0]+'</button>'; }).join('') +
-        '<button class="chip" data-quick="cardio" aria-pressed="'+(draft.tipo==="Cardio")+'">Cardio</button>'+
+        '<button class="chip" data-quick="cardio" aria-pressed="'+(draft.musculos.indexOf("Cardio")>-1)+'">+ Cardio</button>'+
         '<button class="chip" data-quick="outro" aria-pressed="'+(draft.tipo==="Outro")+'">Outro</button>'+
       '</div>'+
       '<div class="field-label">Grupos musculares</div>'+
@@ -632,11 +620,45 @@ var ROOT = "metagym";
       '</div>'+
       (draft.showCustomGym ? '<input type="text" id="gym-custom" placeholder="Nome da academia" value="'+escapeHtml(draft.academiaCustom)+'" style="margin-top:8px;"/>' : '') +
       '<div style="margin-top:14px;">'+
-        '<button class="btn btn-sm btn-ghost" id="btn-toggle-peso">'+(draft.showPeso ? "− peso de hoje" : "+ registrar peso de hoje")+'</button>'+
+        '<button class="btn btn-sm btn-ghost" id="btn-toggle-peso">'+(draft.showPeso ? "− peso" : "+ registrar peso")+'</button>'+
       '</div>'+
-      (draft.showPeso ? '<div class="field-label">Peso hoje (kg)</div><input type="number" step="0.1" min="20" max="300" id="peso-input" value="'+escapeHtml(draft.peso)+'" placeholder="ex: 86.5"/>' : '') +
+      (draft.showPeso ? '<div class="field-label">Peso (kg)</div><input type="number" step="0.1" min="20" max="300" id="peso-input" value="'+escapeHtml(draft.peso)+'" placeholder="ex: 86.5"/>' : '') +
       '<div class="field-label">Observação (opcional)</div>'+
-      '<textarea id="obs-input" placeholder="Como foi o treino, cargas, sensações...">'+escapeHtml(draft.obs)+'</textarea>'+
+      '<textarea id="obs-input" placeholder="Como foi o treino, cargas, sensações...">'+escapeHtml(draft.obs)+'</textarea>';
+  }
+
+  function renderCheckin(me, done, entry, plan, editing){
+    var color = PEOPLE[me].color;
+    if(editing){
+      var ed = fmtDDMM(editing.date);
+      return '<section><div class="card" id="checkin-card">'+
+        '<span class="daybadge pending">Editando treino de '+ed.dd+'/'+ed.mm+'</span>'+
+        renderCheckinFields(plan) +
+        '<div class="row" style="margin-top:16px;">'+
+          '<button class="btn btn-primary" id="btn-submit" style="flex:1;background:'+color+';">Salvar alterações</button>'+
+          '<button class="btn" id="btn-cancel-edit">Cancelar</button>'+
+        '</div>'+
+      '</div></section>';
+    }
+    if(done){
+      var muscTags = (entry.musculos||[]).map(function(m){ return '<span class="htag">'+escapeHtml(m)+'</span>'; }).join('');
+      return '<section><div class="card">'+
+        '<span class="daybadge done">✓ Treino de hoje registrado</span>'+
+        '<div class="doneinfo">'+
+          '<div><b>'+escapeHtml(entry.tipoLabel||"Treino")+'</b></div>'+
+          '<div>'+escapeHtml(entry.academia||"—")+(entry.peso ? " · "+parseFloat(entry.peso).toFixed(1).replace(".",",")+" kg" : "")+'</div>'+
+          (muscTags ? '<div class="hmuscles">'+muscTags+'</div>' : '') +
+          (entry.obs ? '<div class="hobs">"'+escapeHtml(entry.obs)+'"</div>' : '') +
+        '</div>'+
+        '<div class="row" style="margin-top:14px;">'+
+          '<button class="btn btn-sm" data-edit="'+entry.id+'">Editar</button>'+
+          '<button class="btn btn-sm" style="color:var(--critical);" id="btn-undo">Desfazer</button>'+
+        '</div>'+
+      '</div></section>';
+    }
+    return '<section><div class="card" id="checkin-card">'+
+      '<span class="daybadge pending">Treino de hoje ainda não marcado</span>'+
+      renderCheckinFields(plan) +
       '<button class="btn btn-primary btn-block" id="btn-submit" style="margin-top:16px;background:'+color+';">Marcar treino de hoje</button>'+
     '</div></section>';
   }
@@ -711,7 +733,10 @@ var ROOT = "metagym";
             ((c.musculos&&c.musculos.length) ? '<div class="hmuscles">'+c.musculos.map(function(m){return '<span class="htag">'+escapeHtml(m)+'</span>';}).join('')+'</div>' : '')+
             (c.obs ? '<div class="hobs">"'+escapeHtml(c.obs)+'"</div>' : '') +
           '</div>'+
-          '<button class="hundo" data-undo="'+c.id+'">remover</button>' +
+          '<div class="hactions">'+
+            '<button class="hundo neutral" data-edit="'+c.id+'">editar</button>'+
+            '<button class="hundo danger" data-undo="'+c.id+'">remover</button>'+
+          '</div>'+
         '</div>';
       }).join('') : '<p class="empty-hint">Nenhum treino marcado ainda. Bora começar hoje!</p>') +
     '</div></section>';
@@ -756,7 +781,10 @@ var ROOT = "metagym";
       el.addEventListener("click", function(){
         var v = el.getAttribute("data-quick");
         var plan = PLANS[person(me).profile.plano||"A"];
-        if(v==="cardio"){ draft.tipo="Cardio"; draft.musculos=["Cardio"]; }
+        if(v==="cardio"){
+          var ci = draft.musculos.indexOf("Cardio");
+          if(ci>-1) draft.musculos.splice(ci,1); else draft.musculos.push("Cardio");
+        }
         else if(v==="outro"){ draft.tipo="Outro"; }
         else{
           var d = plan.dias[+v];
@@ -807,6 +835,13 @@ var ROOT = "metagym";
       el.addEventListener("click", function(){ undoById(me, el.getAttribute("data-undo")); });
     });
 
+    app.querySelectorAll("[data-edit]").forEach(function(el){
+      el.addEventListener("click", function(){ startEdit(me, el.getAttribute("data-edit")); });
+    });
+
+    var cancelEditBtn = document.getElementById("btn-cancel-edit");
+    if(cancelEditBtn) cancelEditBtn.addEventListener("click", function(){ cancelEdit(); });
+
     app.querySelectorAll("[data-plan]").forEach(function(el){
       el.addEventListener("click", function(){
         var planId = el.getAttribute("data-plan");
@@ -826,27 +861,84 @@ var ROOT = "metagym";
     if(backupBtn) backupBtn.addEventListener("click", function(){ downloadBackup(); });
   }
 
+  function resetDraft(){
+    draft = { tipo:null, musculos:[], academia:null, academiaCustom:"", peso:"", obs:"", showPeso:false, showCustomGym:false };
+  }
+
   function submitCheckin(me){
     var academia = draft.showCustomGym ? draft.academiaCustom.trim() : draft.academia;
-    if(!draft.tipo){ toast("Escolha o tipo de treino."); return; }
+    var tipoLabel = draft.tipo || (draft.musculos.length ? draft.musculos.join(" + ") : "");
     if(!academia){ toast("Escolha a academia."); return; }
     if(draft.musculos.length===0){ toast("Selecione ao menos um grupo muscular."); return; }
+    if(!tipoLabel){ toast("Escolha o tipo de treino ou os grupos musculares."); return; }
+
+    var p = person(me);
+
+    if(editing){
+      var idx = p.checkins.findIndex(function(c){ return c.id === editing.id; });
+      var original = idx>-1 ? p.checkins[idx] : null;
+      var updated = {
+        id: editing.id,
+        date: editing.date,
+        tipoLabel: tipoLabel,
+        musculos: draft.musculos.slice(),
+        academia: academia,
+        peso: draft.peso ? String(parseFloat(draft.peso)) : "",
+        obs: draft.obs.trim(),
+        ts: (original && original.ts) ? original.ts : new Date().toISOString()
+      };
+      if(idx>-1) p.checkins[idx] = updated; else p.checkins.push(updated);
+      saveCache();
+      cloudSet(ROOT+"/"+me+"/checkins/"+editing.id, updated);
+      editing = null;
+      resetDraft();
+      toast("Treino atualizado!");
+      render();
+      return;
+    }
+
     var entry = {
       id: uid(),
       date: todayStr(),
-      tipoLabel: draft.tipo,
+      tipoLabel: tipoLabel,
       musculos: draft.musculos.slice(),
       academia: academia,
       peso: draft.peso ? String(parseFloat(draft.peso)) : "",
       obs: draft.obs.trim(),
       ts: new Date().toISOString()
     };
-    var p = person(me);
     p.checkins.push(entry);
     saveCache();
     cloudSet(ROOT+"/"+me+"/checkins/"+entry.id, entry);
-    draft = { tipo:null, musculos:[], academia:null, academiaCustom:"", peso:"", obs:"", showPeso:false, showCustomGym:false };
+    resetDraft();
     toast("Treino registrado! 💪");
+    render();
+  }
+
+  function startEdit(me, id){
+    var p = person(me);
+    var c = p.checkins.find(function(x){ return x.id === id; });
+    if(!c) return;
+    var isKnownGym = GYMS.indexOf(c.academia) > -1;
+    draft = {
+      tipo: c.tipoLabel || null,
+      musculos: (c.musculos || []).slice(),
+      academia: isKnownGym ? c.academia : null,
+      academiaCustom: isKnownGym ? "" : (c.academia || ""),
+      peso: c.peso || "",
+      obs: c.obs || "",
+      showPeso: !!c.peso,
+      showCustomGym: !isKnownGym && !!c.academia
+    };
+    editing = { id: c.id, date: c.date };
+    render();
+    var card = document.getElementById("checkin-card");
+    if(card) card.scrollIntoView({ behavior:"smooth", block:"start" });
+  }
+
+  function cancelEdit(){
+    editing = null;
+    resetDraft();
     render();
   }
 
@@ -861,6 +953,7 @@ var ROOT = "metagym";
     p.checkins = p.checkins.filter(function(c){ return c.id !== id; });
     saveCache();
     cloudRemove(ROOT+"/"+me+"/checkins/"+id);
+    if(editing && editing.id === id){ editing = null; resetDraft(); }
     toast("Treino removido.");
     render();
   }
