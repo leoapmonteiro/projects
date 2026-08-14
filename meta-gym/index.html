@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Meta Gym">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23eb6834'/%3E%3Ctext x='32' y='42' font-family='Arial Black, Arial, sans-serif' font-size='26' font-weight='900' fill='%23ffffff' text-anchor='middle'%3EMG%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
 <title>Meta Gym</title>
 <style>
   :root{
@@ -163,6 +165,57 @@
   .pcard .pfill{ height:100%; border-radius:999px; }
   .pbadge{ display:inline-block; margin-top:10px; font-size:11px; font-weight:700; color:var(--muted); }
 
+  /* Profile */
+  .avatar-btn{ appearance:none; border:none; background:none; padding:0; cursor:pointer; flex:none; position:relative; }
+  .avatar-btn::after{
+    content:"✎"; position:absolute; right:-2px; bottom:-2px; width:20px; height:20px; border-radius:50%;
+    background:var(--accent); color:var(--accent-ink); font-size:10px; display:flex; align-items:center; justify-content:center;
+    border:2px solid var(--surface);
+  }
+  .profile-row{ display:flex; align-items:center; gap:16px; margin-bottom:16px; }
+  .profile-name{ font-weight:800; font-size:15px; }
+  .profile-hint{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+
+  /* Badges */
+  .badges-row{ display:flex; gap:8px; flex-wrap:wrap; }
+  .badge{
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:7px 12px;
+    border-radius:999px; background:var(--surface-2); border:1px solid var(--border); color:var(--ink-2);
+  }
+  .badge.earned{ background:color-mix(in srgb, var(--accent) 16%, var(--surface)); color:var(--accent); border-color:transparent; }
+
+  /* Heatmap */
+  .heatmap-scroll{ overflow-x:auto; padding-bottom:6px; }
+  .heatmap{ display:inline-flex; gap:3px; }
+  .heatmap-week{ display:flex; flex-direction:column; gap:3px; }
+  .heatmap-day{ width:11px; height:11px; border-radius:2px; background:var(--grid); }
+  .heatmap-legend{ display:flex; align-items:center; gap:6px; font-size:11px; color:var(--muted); margin-top:8px; }
+
+  /* Insights automáticos */
+  .insight-row{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--ink-2); line-height:1.5; }
+  .insight-row:last-child{ border-bottom:none; }
+  .insight-icon{ flex:none; font-size:15px; }
+
+  /* Partner activity + reactions */
+  .activity-item{ padding:10px 0; border-bottom:1px solid var(--border); }
+  .activity-item:last-child{ border-bottom:none; }
+  .activity-head{ display:flex; justify-content:space-between; align-items:baseline; }
+  .activity-type{ font-size:13px; font-weight:700; }
+  .activity-date{ font-size:11px; color:var(--muted); font-weight:700; }
+  .activity-obs{ font-size:12.5px; color:var(--ink-2); font-style:italic; margin-top:4px; }
+  .reactions-row{ display:flex; gap:6px; margin-top:8px; }
+  .reaction-btn{
+    appearance:none; border:1px solid var(--border); background:var(--surface-2); border-radius:999px;
+    padding:4px 10px; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:4px;
+  }
+  .reaction-btn[aria-pressed="true"]{ background:color-mix(in srgb, var(--accent) 18%, var(--surface)); border-color:transparent; }
+  .reaction-count{ font-size:10.5px; color:var(--muted); font-weight:700; }
+
+  .banner{
+    display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; font-size:13px; font-weight:600;
+    background:color-mix(in srgb, var(--critical) 12%, var(--surface)); color:var(--critical); margin-bottom:12px;
+  }
+
   /* Insights bars */
   .hbar-row{ display:flex; align-items:center; gap:10px; margin-bottom:9px; }
   .hbar-row:last-child{ margin-bottom:0; }
@@ -255,6 +308,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getDatabase, ref, set, remove, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 var firebaseConfig = {
   apiKey: "AIzaSyBHXX3cAgGuBVKnSrj44R0fJHkq2D8aZ4k",
@@ -267,10 +321,11 @@ var firebaseConfig = {
 };
 var fbApp = initializeApp(firebaseConfig);
 var rtdb = getDatabase(fbApp);
+var fbAuth = getAuth(fbApp);
 var ROOT = "metagym";
 
   "use strict";
-  var GOAL = 50;
+  var DEFAULT_GOAL = 50;
   var APP_URL = "https://leoapmonteiro.github.io/projects/meta-gym/";
   var ID_KEY = "metagym_identity_v1";
   var CACHE_KEY = "metagym_cache_v1";
@@ -323,21 +378,38 @@ var ROOT = "metagym";
   }
   function saveCache(){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(db)); }catch(e){} }
   function emptyPerson(who){
-    return { profile:{ objetivo:"", altura:"", pesoInicial:"", plano:(who==="joana"?"B":"A"), criadoEm:new Date().toISOString() }, checkins:[] };
+    return { profile:{ objetivo:"", altura:"", pesoInicial:"", plano:(who==="joana"?"B":"A"), goal:DEFAULT_GOAL, photo:"", criadoEm:new Date().toISOString() }, checkins:[] };
   }
   function normalizePerson(raw, who){
     if(!raw) return emptyPerson(who);
     var checkinsObj = raw.checkins || {};
     var checkinsArr = Object.keys(checkinsObj).map(function(k){ return checkinsObj[k]; });
-    return { profile: raw.profile || emptyPerson(who).profile, checkins: checkinsArr };
+    var profile = raw.profile || emptyPerson(who).profile;
+    if(!profile.goal) profile.goal = DEFAULT_GOAL;
+    return { profile: profile, checkins: checkinsArr };
   }
   function getIdentity(){ try{ return localStorage.getItem(ID_KEY); }catch(e){ return null; } }
   function setIdentity(who){ try{ localStorage.setItem(ID_KEY, who); }catch(e){} }
   function clearIdentity(){ try{ localStorage.removeItem(ID_KEY); }catch(e){} }
 
-  function cloudSet(path, value){ set(ref(rtdb, path), value).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }
-  function cloudRemove(path){ remove(ref(rtdb, path)).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }
-  function cloudUpdate(path, patch){ update(ref(rtdb, path), patch).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }
+  // Anonymous auth: required by the security rules for any write, kept invisible
+  // to the user (no login screen) — just gates writes to "someone signed in
+  // through the app", not to a specific person.
+  var authReady = false;
+  var authQueue = [];
+  function whenAuthed(fn){ if(authReady) fn(); else authQueue.push(fn); }
+  onAuthStateChanged(fbAuth, function(user){
+    if(user){
+      authReady = true;
+      var q = authQueue.slice(); authQueue = [];
+      q.forEach(function(fn){ fn(); });
+    }
+  });
+  signInAnonymously(fbAuth).catch(function(){ toast("Não foi possível conectar com segurança — tente recarregar a página."); });
+
+  function cloudSet(path, value){ whenAuthed(function(){ set(ref(rtdb, path), value).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }); }
+  function cloudRemove(path){ whenAuthed(function(){ remove(ref(rtdb, path)).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }); }
+  function cloudUpdate(path, patch){ whenAuthed(function(){ update(ref(rtdb, path), patch).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }); }
 
   function startCloudSync(){
     // Two separate listeners: the security rules grant .read/.write at
@@ -397,11 +469,12 @@ var ROOT = "metagym";
 
   function computeStats(who){
     var p = person(who);
+    var goal = p.profile.goal || DEFAULT_GOAL;
     var checkins = p.checkins.slice().sort(function(a,b){ return a.date < b.date ? -1 : 1; });
     var count = checkins.length;
-    var pct = Math.min(1, count / GOAL);
+    var pct = Math.min(1, count / goal);
 
-    // streak
+    // streak (current, counting back from today/yesterday)
     var dates = {};
     checkins.forEach(function(c){ dates[c.date]=true; });
     var streak = 0;
@@ -417,13 +490,32 @@ var ROOT = "metagym";
       cursorStr = cursor.getFullYear()+"-"+pad(cursor.getMonth()+1)+"-"+pad(cursor.getDate());
     }
 
+    // best streak ever (longest run of consecutive dates in the whole history)
+    var sortedDates = Object.keys(dates).sort();
+    var bestStreak = 0, run = 0, prevD = null;
+    sortedDates.forEach(function(ds){
+      if(prevD){
+        var expect = dateFromStr(prevD); expect.setDate(expect.getDate()+1);
+        var expectStr = expect.getFullYear()+"-"+pad(expect.getMonth()+1)+"-"+pad(expect.getDate());
+        run = (expectStr === ds) ? run+1 : 1;
+      } else { run = 1; }
+      if(run>bestStreak) bestStreak = run;
+      prevD = ds;
+    });
+
     var year = new Date().getFullYear();
     var deadline = new Date(year,11,31);
     var now = new Date();
     var daysLeft = Math.max(0, Math.ceil((deadline - now)/86400000));
     var weeksLeft = Math.max(1, Math.ceil(daysLeft/7));
-    var remaining = Math.max(0, GOAL - count);
+    var remaining = Math.max(0, goal - count);
     var pace = remaining>0 ? (remaining/weeksLeft) : 0;
+
+    // last time each muscle group was trained (days ago) — feeds the imbalance insight
+    var muscleLastDate = {};
+    checkins.forEach(function(c){ (c.musculos||[]).forEach(function(m){
+      if(!muscleLastDate[m] || c.date > muscleLastDate[m]) muscleLastDate[m] = c.date;
+    }); });
 
     // weekly buckets (last 8 weeks)
     var weekKeys = [];
@@ -453,10 +545,133 @@ var ROOT = "metagym";
 
     var lastDate = checkins.length ? checkins[checkins.length-1].date : null;
 
-    return { count:count, pct:pct, streak:streak, daysLeft:daysLeft, weeksLeft:weeksLeft, remaining:remaining, pace:pace, weekly:weekly, muscles:muscles, gyms:gyms, weight:weight, lastDate:lastDate, year:year };
+    return { count:count, goal:goal, pct:pct, streak:streak, bestStreak:bestStreak, daysLeft:daysLeft, weeksLeft:weeksLeft,
+      remaining:remaining, pace:pace, weekly:weekly, muscles:muscles, gyms:gyms, weight:weight, lastDate:lastDate,
+      year:year, datesSet:dates, muscleLastDate:muscleLastDate, checkins:checkins };
+  }
+
+  var BADGE_DEFS = [
+    { id:"c10",  test:function(s){ return s.count>=10; },  icon:"🥉", label:"10 treinos" },
+    { id:"c25",  test:function(s){ return s.count>=25; },  icon:"🥈", label:"25 treinos" },
+    { id:"cgoal",test:function(s){ return s.count>=s.goal; }, icon:"🏆", label:"Meta batida" },
+    { id:"s7",   test:function(s){ return s.bestStreak>=7; },  icon:"🔥", label:"7 dias seguidos" },
+    { id:"s14",  test:function(s){ return s.bestStreak>=14; }, icon:"🔥🔥", label:"14 dias seguidos" },
+    { id:"s30",  test:function(s){ return s.bestStreak>=30; }, icon:"🔥🔥🔥", label:"30 dias seguidos" }
+  ];
+  function computeBadges(stats){
+    return BADGE_DEFS.map(function(b){ return { icon:b.icon, label:b.label, earned:b.test(stats) }; });
+  }
+
+  function daysSince(dateStr){
+    var d = dateFromStr(dateStr);
+    return Math.round((dateFromStr(todayStr()) - d) / 86400000);
+  }
+
+  var FATIGUE_WORDS = ["dor","dolorid","cansaç","cansad","exaust","lesão","lesao","desânimo","desanimo","fraca","fraco","sem energia"];
+
+  function computeInsights(stats){
+    var out = [];
+
+    // muscle imbalance: groups never trained (with enough history to matter) or stale >10 days
+    if(stats.count >= 4){
+      var TRACKED = ["Peito","Costas","Perna","Ombro","Glúteo","Core"];
+      var stale = TRACKED.filter(function(m){
+        var last = stats.muscleLastDate[m];
+        return !last || daysSince(last) > 10;
+      });
+      if(stale.length){
+        out.push({ icon:"⚖️", text:"Sem treinar "+stale.join(", ")+" há mais de 10 dias — pode valer encaixar no próximo treino." });
+      }
+    }
+
+    // recent fatigue mentions in the diary
+    var recentObs = stats.checkins.filter(function(c){ return daysSince(c.date) <= 14; });
+    var fatigueHits = recentObs.filter(function(c){
+      var t = (c.obs||"").toLowerCase();
+      return FATIGUE_WORDS.some(function(w){ return t.indexOf(w) > -1; });
+    });
+    if(recentObs.length >= 3 && fatigueHits.length >= Math.ceil(recentObs.length/2)){
+      out.push({ icon:"🛌", text:"Seus relatos das últimas 2 semanas mencionam cansaço/dor com frequência — pode ser hora de um dia de descanso extra." });
+    }
+
+    // weight trend
+    if(stats.weight.length >= 2){
+      var first = stats.weight[0], last = stats.weight[stats.weight.length-1];
+      var delta = last.value - first.value;
+      if(Math.abs(delta) >= 0.5){
+        out.push({ icon: delta<0 ? "📉" : "📈", text:"Peso "+(delta<0?"caiu":"subiu")+" "+Math.abs(delta).toFixed(1).replace(".",",")+" kg desde o primeiro registro." });
+      }
+    }
+
+    // pace vs recent reality
+    var recentWeekly = stats.weekly.slice(-4);
+    var recentAvg = recentWeekly.reduce(function(a,w){ return a+w.value; },0) / (recentWeekly.length||1);
+    if(stats.remaining > 0 && stats.pace > recentAvg + 0.5){
+      out.push({ icon:"⏱️", text:"O ritmo necessário ("+stats.pace.toFixed(1).replace(".",",")+"/semana) está acima da sua média recente ("+recentAvg.toFixed(1).replace(".",",")+"/semana)." });
+    }
+
+    if(stats.bestStreak >= 3){
+      out.push({ icon:"✨", text:"Sua melhor sequência até agora foi de "+stats.bestStreak+" dias seguidos." });
+    }
+
+    if(!out.length){
+      out.push({ icon:"👀", text:"Ainda sem padrões claros — continue registrando que os insights aparecem aqui." });
+    }
+    return out;
+  }
+
+  function heatmapCells(datesSet, year){
+    var start = new Date(year,0,1);
+    var startDow = (start.getDay()+6)%7; // Monday-first
+    var gridStart = new Date(start); gridStart.setDate(gridStart.getDate()-startDow);
+    var end = new Date(year,11,31);
+    var cells = [];
+    var d = new Date(gridStart);
+    while(d <= end || cells.length % 7 !== 0){
+      var ds = d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+      cells.push({ date:ds, inYear: d.getFullYear()===year, trained: !!datesSet[ds] });
+      d.setDate(d.getDate()+1);
+      if(d > end && cells.length % 7 === 0) break;
+    }
+    var weeks = [];
+    for(var i=0;i<cells.length;i+=7){ weeks.push(cells.slice(i,i+7)); }
+    return weeks;
   }
 
   // ---------- render helpers ----------
+  function avatarHTML(who, size){
+    var pp = PEOPLE[who];
+    var photo = person(who).profile.photo;
+    var s = size || 40;
+    if(photo){
+      return '<img src="'+photo+'" alt="'+pp.name+'" style="width:'+s+'px;height:'+s+'px;border-radius:50%;object-fit:cover;flex:none;border:2px solid '+pp.color+';display:block;">';
+    }
+    return '<span style="width:'+s+'px;height:'+s+'px;border-radius:50%;background:'+pp.color+';color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:'+Math.round(s*0.4)+'px;flex:none;">'+pp.av+'</span>';
+  }
+
+  function compressImage(file){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onerror = function(){ reject(new Error("read failed")); };
+      reader.onload = function(){
+        var img = new Image();
+        img.onerror = function(){ reject(new Error("decode failed")); };
+        img.onload = function(){
+          var size = 240;
+          var canvas = document.createElement("canvas");
+          canvas.width = size; canvas.height = size;
+          var ctx = canvas.getContext("2d");
+          var side = Math.min(img.width, img.height);
+          var sx = (img.width-side)/2, sy = (img.height-side)/2;
+          ctx.drawImage(img, sx, sy, side, side, 0, 0, size, size);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
   function ringSVG(pct, color, size, stroke){
     size = size||118; stroke = stroke||11;
     var r = (size-stroke)/2, c = 2*Math.PI*r, off = c*(1-Math.max(0,Math.min(pct,1)));
@@ -542,11 +757,15 @@ var ROOT = "metagym";
       renderTopbar(me) +
       renderNav() +
       '<div class="wrap">' +
+        renderReminderBanner(me, stats, done) +
         renderHero(me, stats) +
         renderCheckin(me, done, entry, plan, editing) +
+        renderWeeklyRecap(me, stats) +
         renderCompare(me, other, stats, otherStats) +
+        renderActivity(me, other) +
         renderInsights(me, stats) +
         renderPlan(me, plan) +
+        renderProfile(me, stats) +
         renderShare(me, other) +
         renderHistory(me, meP) +
         renderBackup() +
@@ -566,7 +785,7 @@ var ROOT = "metagym";
       '<div class="gate-pick">'+
         Object.keys(PEOPLE).map(function(k){
           var pp = PEOPLE[k];
-          return '<button class="pickbtn" data-pick="'+k+'"><span class="av" style="background:'+pp.color+'">'+pp.av+'</span><span><span class="pn">'+pp.name+'</span><br/><span class="ps">Marcar treinos como '+pp.name+'</span></span></button>';
+          return '<button class="pickbtn" data-pick="'+k+'">'+avatarHTML(k,34)+'<span><span class="pn">'+pp.name+'</span><br/><span class="ps">Marcar treinos como '+pp.name+'</span></span></button>';
         }).join('') +
       '</div>'+
     '</div></div>';
@@ -575,12 +794,12 @@ var ROOT = "metagym";
   function renderTopbar(me){
     return '<div class="topbar"><div class="topbar-in">'+
       '<div class="brand"><div class="brand-mark">MG</div><div class="brand-name">META GYM</div></div>'+
-      '<div class="whoami">Olá, <b>'+PEOPLE[me].name+'</b><button class="switchlink" id="btn-switch">trocar</button></div>'+
+      '<div class="whoami">'+avatarHTML(me,26)+' Olá, <b>'+PEOPLE[me].name+'</b><button class="switchlink" id="btn-switch">trocar</button></div>'+
     '</div></div>';
   }
 
   function renderNav(){
-    var items = [["hoje","Hoje"],["comparativo","Comparativo"],["insights","Insights"],["plano","Plano"],["compartilhar","Compartilhar"],["historico","Histórico"]];
+    var items = [["hoje","Hoje"],["comparativo","Comparativo"],["insights","Insights"],["plano","Plano"],["perfil","Perfil"],["compartilhar","Compartilhar"],["historico","Histórico"]];
     return '<div class="nav">' + items.map(function(i){ return '<a href="#sec-'+i[0]+'">'+i[1]+'</a>'; }).join('') + '</div>';
   }
 
@@ -588,11 +807,11 @@ var ROOT = "metagym";
     var color = PEOPLE[me].color;
     return '<section id="sec-hoje"><div class="hero">'+
       '<div class="ring-wrap">'+ ringSVG(stats.pct, color) +
-        '<div class="ring-num"><span class="n num display">'+stats.count+'</span><span class="d">de '+GOAL+'</span></div>'+
+        '<div class="ring-num"><span class="n num display">'+stats.count+'</span><span class="d">de '+stats.goal+'</span></div>'+
       '</div>'+
       '<div class="hero-stats">'+
         '<div class="h-year">Meta '+stats.year+'</div>'+
-        '<div class="h-title">'+(stats.count>=GOAL ? "Meta batida! 🎉" : (GOAL-stats.count)+" treinos para a meta")+'</div>'+
+        '<div class="h-title">'+(stats.count>=stats.goal ? "Meta batida! 🎉" : (stats.goal-stats.count)+" treinos para a meta")+'</div>'+
         '<div class="hero-metrics">'+
           '<div class="hmetric"><div class="v num">'+stats.streak+'</div><div class="l">Sequência</div></div>'+
           '<div class="hmetric"><div class="v num">'+stats.daysLeft+'</div><div class="l">Dias restantes</div></div>'+
@@ -669,8 +888,8 @@ var ROOT = "metagym";
       var badge = st.lastDate ? ("Último treino: "+fmtDDMM(st.lastDate).dd+"/"+fmtDDMM(st.lastDate).mm.slice(0,3)) : "Nenhum treino ainda";
       var pct = Math.round(st.pct*100);
       return '<div class="pcard">'+
-        '<div class="pname"><span class="pdot" style="background:'+pp.color+'"></span>'+pp.name+'</div>'+
-        '<div class="pbig num">'+st.count+'<span class="pgoal"> /'+GOAL+'</span></div>'+
+        '<div class="pname">'+avatarHTML(who,26)+' '+pp.name+'</div>'+
+        '<div class="pbig num">'+st.count+'<span class="pgoal"> /'+st.goal+'</span></div>'+
         '<div class="ptrack"><div class="pfill" style="width:'+pct+'%;background:'+pp.color+'"></div></div>'+
         '<div class="pbadge">'+badge+'</div>'+
       '</div>';
@@ -682,10 +901,33 @@ var ROOT = "metagym";
 
   function renderInsights(me, stats){
     var color = PEOPLE[me].color;
+    var badges = computeBadges(stats);
+    var insightsAuto = computeInsights(stats);
+    var weeks = heatmapCells(stats.datesSet, stats.year);
     return '<section id="sec-insights"><div class="card">'+
       '<div class="card-title">Insights — '+PEOPLE[me].name+'</div>'+
       '<div class="card-sub">Baseado nos seus treinos marcados.</div>'+
-      '<div class="field-label">Últimas 8 semanas</div>'+
+
+      '<div class="field-label">Conquistas</div>'+
+      '<div class="badges-row">'+
+        badges.map(function(b){ return '<span class="badge'+(b.earned?' earned':'')+'">'+b.icon+' '+b.label+'</span>'; }).join('') +
+      '</div>'+
+
+      '<div class="field-label" style="margin-top:18px;">O que os dados mostram</div>'+
+      insightsAuto.map(function(i){ return '<div class="insight-row"><span class="insight-icon">'+i.icon+'</span><span>'+i.text+'</span></div>'; }).join('') +
+
+      '<div class="field-label" style="margin-top:18px;">Ano em dias — '+stats.year+'</div>'+
+      '<div class="heatmap-scroll"><div class="heatmap">'+
+        weeks.map(function(week){
+          return '<div class="heatmap-week">'+ week.map(function(d){
+            var style = d.inYear ? ('background:'+(d.trained ? color : 'var(--grid)')) : 'visibility:hidden';
+            return '<div class="heatmap-day" style="'+style+'" title="'+d.date+(d.trained?' — treinou':'')+'"></div>';
+          }).join('') + '</div>';
+        }).join('') +
+      '</div></div>'+
+      '<div class="heatmap-legend"><span class="heatmap-day" style="background:var(--grid);display:inline-block;"></span> sem treino <span class="heatmap-day" style="background:'+color+';display:inline-block;margin-left:6px;"></span> treinou</div>'+
+
+      '<div class="field-label" style="margin-top:18px;">Últimas 8 semanas</div>'+
       weekBars(stats.weekly, color) +
       '<div class="field-label" style="margin-top:18px;">Grupos musculares</div>'+
       hbars(stats.muscles, color, {emptyText:"Marque treinos para ver a distribuição por grupo muscular."}) +
@@ -708,6 +950,73 @@ var ROOT = "metagym";
       '<ul class="tiplist">' + plan.dicas.slice(0,-1).map(function(t){ return '<li>'+t+'</li>'; }).join('') + '</ul>'+
       '<div class="disclaimer">'+plan.dicas[plan.dicas.length-1]+' As sugestões aqui são gerais e educativas, não substituem orientação de profissional de educação física, médico ou nutricionista.</div>'+
     '</details></section>';
+  }
+
+  function renderProfile(me, stats){
+    var p = person(me);
+    return '<section id="sec-perfil"><div class="card">'+
+      '<div class="card-title">Perfil</div>'+
+      '<div class="card-sub">Sua foto e sua meta pessoal de treinos em '+stats.year+'.</div>'+
+      '<div class="profile-row">'+
+        '<button class="avatar-btn" id="btn-avatar" aria-label="Trocar foto">'+avatarHTML(me,64)+'</button>'+
+        '<div><div class="profile-name">'+PEOPLE[me].name+'</div><div class="profile-hint">Toque na foto para trocar</div></div>'+
+        '<input type="file" id="photo-input" accept="image/*" style="display:none;">'+
+      '</div>'+
+      '<div class="field-label">Meta de treinos em '+stats.year+'</div>'+
+      '<div class="row">'+
+        '<input type="number" id="goal-input" min="1" max="366" value="'+stats.goal+'" style="max-width:120px;">'+
+        '<button class="btn btn-sm" id="btn-save-goal">Salvar meta</button>'+
+      '</div>'+
+    '</div></section>';
+  }
+
+  function renderReminderBanner(me, stats, done){
+    if(done) return '';
+    if(stats.count > 0 && stats.streak === 0){
+      return '<div class="banner">⚠️ Você ainda não marcou o treino de hoje — e sua sequência anterior foi interrompida. Bora recomeçar?</div>';
+    }
+    if(stats.count === 0){
+      return '';
+    }
+    return '<div class="banner">⏰ Você ainda não marcou o treino de hoje.</div>';
+  }
+
+  function renderWeeklyRecap(me, stats){
+    var last7 = stats.checkins.filter(function(c){ return daysSince(c.date) <= 6; });
+    if(!last7.length){
+      return '<section><div class="card"><div class="card-title">Essa semana</div><p class="empty-hint">Nenhum treino nos últimos 7 dias.</p></div></section>';
+    }
+    var muscles = {};
+    last7.forEach(function(c){ (c.musculos||[]).forEach(function(m){ muscles[m]=true; }); });
+    var gyms = {};
+    last7.forEach(function(c){ if(c.academia) gyms[c.academia]=true; });
+    return '<section><div class="card">'+
+      '<div class="card-title">Essa semana</div>'+
+      '<div class="card-sub">'+last7.length+' treino(s) nos últimos 7 dias · '+Object.keys(muscles).join(", ")+(Object.keys(gyms).length?(' · '+Object.keys(gyms).join(", ")):'')+'</div>'+
+    '</div></section>';
+  }
+
+  function renderActivity(me, other){
+    var otherP = person(other);
+    var items = otherP.checkins.slice().sort(function(a,b){ return a.date < b.date ? 1 : -1; }).slice(0,5);
+    var REACTIONS = ["🔥","👏","💪"];
+    return '<section><div class="card">'+
+      '<div class="card-title">Atividade de '+PEOPLE[other].name+'</div>'+
+      '<div class="card-sub">Últimos treinos — deixe uma reação para incentivar.</div>'+
+      (items.length ? items.map(function(c){
+        var d = fmtDDMM(c.date);
+        var myReaction = c.reactions && c.reactions[me];
+        return '<div class="activity-item">'+
+          '<div class="activity-head"><span class="activity-type">'+escapeHtml(c.tipoLabel||"Treino")+'</span><span class="activity-date">'+d.dd+'/'+d.mm+'</span></div>'+
+          (c.obs ? '<div class="activity-obs">"'+escapeHtml(c.obs)+'"</div>' : '') +
+          '<div class="reactions-row">'+
+            REACTIONS.map(function(r){
+              return '<button class="reaction-btn" data-react="'+other+'|'+c.id+'|'+r+'" aria-pressed="'+(myReaction===r)+'">'+r+'</button>';
+            }).join('') +
+          '</div>'+
+        '</div>';
+      }).join('') : '<p class="empty-hint">'+PEOPLE[other].name+' ainda não marcou treinos.</p>') +
+    '</div></section>';
   }
 
   function renderShare(me, other){
@@ -859,6 +1168,52 @@ var ROOT = "metagym";
 
     var backupBtn = document.getElementById("btn-backup");
     if(backupBtn) backupBtn.addEventListener("click", function(){ downloadBackup(); });
+
+    var avatarBtn = document.getElementById("btn-avatar");
+    var photoInput = document.getElementById("photo-input");
+    if(avatarBtn && photoInput) avatarBtn.addEventListener("click", function(){ photoInput.click(); });
+    if(photoInput) photoInput.addEventListener("change", function(){
+      var file = photoInput.files && photoInput.files[0];
+      if(!file) return;
+      if(file.size > 8*1024*1024){ toast("Imagem muito grande — escolha uma foto menor."); return; }
+      compressImage(file).then(function(dataUrl){
+        var p = person(me);
+        p.profile.photo = dataUrl;
+        saveCache();
+        cloudUpdate(ROOT+"/"+me+"/profile", { photo: dataUrl });
+        toast("Foto atualizada!");
+        render();
+      }).catch(function(){ toast("Não foi possível usar essa imagem — tente outra."); });
+    });
+
+    var saveGoalBtn = document.getElementById("btn-save-goal");
+    if(saveGoalBtn) saveGoalBtn.addEventListener("click", function(){
+      var goalInput = document.getElementById("goal-input");
+      var v = parseInt(goalInput.value, 10);
+      if(!v || v<1){ toast("Digite uma meta válida."); return; }
+      var p = person(me);
+      p.profile.goal = v;
+      saveCache();
+      cloudUpdate(ROOT+"/"+me+"/profile", { goal: v });
+      toast("Meta atualizada!");
+      render();
+    });
+
+    app.querySelectorAll("[data-react]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var parts = el.getAttribute("data-react").split("|");
+        var owner = parts[0], checkinId = parts[1], emoji = parts[2];
+        var p = person(owner);
+        var c = p.checkins.find(function(x){ return x.id === checkinId; });
+        if(!c) return;
+        if(!c.reactions) c.reactions = {};
+        var current = c.reactions[me];
+        if(current === emoji){ delete c.reactions[me]; cloudRemove(ROOT+"/"+owner+"/checkins/"+checkinId+"/reactions/"+me); }
+        else { c.reactions[me] = emoji; cloudSet(ROOT+"/"+owner+"/checkins/"+checkinId+"/reactions/"+me, emoji); }
+        saveCache();
+        render();
+      });
+    });
   }
 
   function resetDraft(){
@@ -963,7 +1318,7 @@ var ROOT = "metagym";
   function shareProgress(me){
     var stats = computeStats(me);
     var text = "💪 Meta Gym — progresso de "+PEOPLE[me].name+"\n"+
-      "✅ "+stats.count+"/"+GOAL+" treinos em "+stats.year+"\n"+
+      "✅ "+stats.count+"/"+stats.goal+" treinos em "+stats.year+"\n"+
       "🔥 Sequência atual: "+stats.streak+" dia(s)\n"+
       "📅 Faltam "+stats.daysLeft+" dias para o fim do ano\n\n"+
       "Acompanhe no Meta Gym:\n"+APP_URL;
@@ -1010,6 +1365,9 @@ var ROOT = "metagym";
   // ---------- init ----------
   render();
   startCloudSync();
+  if("serviceWorker" in navigator){
+    window.addEventListener("load", function(){ navigator.serviceWorker.register("sw.js").catch(function(){}); });
+  }
   if(window.claude && typeof window.claude.use === "function"){
     window.claude.use("downloads").then(function(cap){
       downloadsCap = cap;
