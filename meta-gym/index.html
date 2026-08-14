@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#eb6834">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Meta Gym">
+<meta name="apple-mobile-web-app-title" content="TrilhaFit">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23141311'/%3E%3Cpath d='M15 33 L26 44 L50 14' fill='none' stroke='%23eb6834' stroke-width='7.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='50' cy='14' r='5.1' fill='%23eb6834'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icon.svg">
-<title>Meta Gym</title>
+<title>TrilhaFit</title>
 <style>
   :root{
     color-scheme: light;
@@ -280,7 +280,8 @@
     display:flex; align-items:center; justify-content:center; margin:0 auto 16px; padding:12px;
   }
   .gate-mark svg{ width:100%; height:100%; display:block; }
-  .gate-title{ font-size:20px; font-weight:900; margin-bottom:6px; }
+  .gate-title{ font-size:20px; font-weight:900; margin-bottom:4px; }
+  .gate-tagline{ font-size:12px; color:var(--accent); font-weight:600; font-style:italic; margin-bottom:16px; }
   .gate-sub{ font-size:13.5px; color:var(--ink-2); margin-bottom:22px; line-height:1.5; }
   .gate-pick{ display:flex; flex-direction:column; gap:10px; }
   .pickbtn{
@@ -332,7 +333,7 @@ var ROOT = "metagym";
   var ID_KEY = "metagym_identity_v1";
   var CACHE_KEY = "metagym_cache_v1";
   var GYMS = ["Condomínio","Peralta","Hage","Cristal","Crossfit"];
-  var LOGO_MARK_SVG = '<svg viewBox="0 0 100 100" role="img" aria-label="Meta Gym">'+
+  var LOGO_MARK_SVG = '<svg viewBox="0 0 100 100" role="img" aria-label="TrilhaFit">'+
     '<path d="M24 52 L40 68 L78 22" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>'+
     '<circle cx="78" cy="22" r="8" fill="var(--accent)"/>'+
   '</svg>';
@@ -786,7 +787,8 @@ var ROOT = "metagym";
     var who = getIdentity();
     return '<div class="overlay"><div class="gate-card">'+
       '<div class="gate-mark">'+LOGO_MARK_SVG+'</div>'+
-      '<div class="gate-title">Meta Gym</div>'+
+      '<div class="gate-title">TrilhaFit</div>'+
+      '<div class="gate-tagline">trilhando sua saúde, junto com a turma</div>'+
       '<div class="gate-sub">Quem está marcando o treino neste aparelho? Essa escolha fica salva aqui — cada um edita só o próprio progresso.</div>'+
       '<div class="gate-pick">'+
         Object.keys(PEOPLE).map(function(k){
@@ -799,7 +801,7 @@ var ROOT = "metagym";
 
   function renderTopbar(me){
     return '<div class="topbar"><div class="topbar-in">'+
-      '<div class="brand"><div class="brand-mark">'+LOGO_MARK_SVG+'</div><div class="brand-name">META<span style="color:var(--accent)">GYM</span></div></div>'+
+      '<div class="brand"><div class="brand-mark">'+LOGO_MARK_SVG+'</div><div class="brand-name">TRILHA<span style="color:var(--accent)">FIT</span></div></div>'+
       '<div class="whoami">'+avatarHTML(me,26)+' Olá, <b>'+PEOPLE[me].name+'</b><button class="switchlink" id="btn-switch">trocar</button></div>'+
     '</div></div>';
   }
@@ -1323,14 +1325,14 @@ var ROOT = "metagym";
 
   function shareProgress(me){
     var stats = computeStats(me);
-    var text = "💪 Meta Gym — progresso de "+PEOPLE[me].name+"\n"+
+    var text = "💪 TrilhaFit — progresso de "+PEOPLE[me].name+"\n"+
       "✅ "+stats.count+"/"+stats.goal+" treinos em "+stats.year+"\n"+
       "🔥 Sequência atual: "+stats.streak+" dia(s)\n"+
       "📅 Faltam "+stats.daysLeft+" dias para o fim do ano\n\n"+
-      "Acompanhe no Meta Gym:\n"+APP_URL;
+      "Acompanhe no TrilhaFit:\n"+APP_URL;
 
     if(navigator.share){
-      navigator.share({ title:"Meta Gym", text:text }).catch(function(err){
+      navigator.share({ title:"TrilhaFit", text:text }).catch(function(err){
         if(err && err.name === "AbortError") return;
         copyToClipboard(text);
       });

@@ -1,7 +1,7 @@
 {
-  "name": "Meta Gym",
-  "short_name": "Meta Gym",
-  "description": "Acompanhe treinos e a meta do ano com quem treina junto com você.",
+  "name": "TrilhaFit",
+  "short_name": "TrilhaFit",
+  "description": "Trilhando sua saúde, junto com a turma — marque treinos e acompanhe a meta do ano com quem treina junto com você.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
