@@ -249,13 +249,28 @@
 
 <div id="app" class="vizroot"></div>
 
-<script>
-(function(){
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, remove, update, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+var firebaseConfig = {
+  apiKey: "AIzaSyBHXX3cAgGuBVKnSrj44R0fJHkq2D8aZ4k",
+  authDomain: "meta-gym-861ca.firebaseapp.com",
+  databaseURL: "https://meta-gym-861ca-default-rtdb.firebaseio.com",
+  projectId: "meta-gym-861ca",
+  storageBucket: "meta-gym-861ca.firebasestorage.app",
+  messagingSenderId: "530812791431",
+  appId: "1:530812791431:web:649b9fdb7e8e818da8a622"
+};
+var fbApp = initializeApp(firebaseConfig);
+var rtdb = getDatabase(fbApp);
+var ROOT = "metagym";
+
   "use strict";
   var GOAL = 50;
   var APP_URL = "https://leoapmonteiro.github.io/projects/meta-gym/";
-  var DB_KEY = "metagym_db_v1";
   var ID_KEY = "metagym_identity_v1";
+  var CACHE_KEY = "metagym_cache_v1";
   var GYMS = ["Condomínio","Peralta","Hage","Cristal","Crossfit"];
   var MUSCLES = ["Peito","Costas","Ombro","Bíceps","Tríceps","Perna","Glúteo","Core","Cardio"];
   var PEOPLE = {
@@ -296,22 +311,43 @@
   };
 
   // ---------- storage ----------
-  function loadDB(){
+  function loadCache(){
     try{
-      var raw = localStorage.getItem(DB_KEY);
+      var raw = localStorage.getItem(CACHE_KEY);
       if(raw) return JSON.parse(raw);
     }catch(e){}
     return { leo:null, joana:null };
   }
-  function saveDB(){ try{ localStorage.setItem(DB_KEY, JSON.stringify(db)); }catch(e){} }
+  function saveCache(){ try{ localStorage.setItem(CACHE_KEY, JSON.stringify(db)); }catch(e){} }
   function emptyPerson(who){
-    return { profile:{ objetivo:"", altura:"", pesoInicial:"", plano:(who==="joana"?"B":"A"), criadoEm:new Date().toISOString() }, checkins:[], importedAt:null };
+    return { profile:{ objetivo:"", altura:"", pesoInicial:"", plano:(who==="joana"?"B":"A"), criadoEm:new Date().toISOString() }, checkins:[] };
+  }
+  function normalizePerson(raw, who){
+    if(!raw) return emptyPerson(who);
+    var checkinsObj = raw.checkins || {};
+    var checkinsArr = Object.keys(checkinsObj).map(function(k){ return checkinsObj[k]; });
+    return { profile: raw.profile || emptyPerson(who).profile, checkins: checkinsArr };
   }
   function getIdentity(){ try{ return localStorage.getItem(ID_KEY); }catch(e){ return null; } }
   function setIdentity(who){ try{ localStorage.setItem(ID_KEY, who); }catch(e){} }
   function clearIdentity(){ try{ localStorage.removeItem(ID_KEY); }catch(e){} }
 
-  var db = loadDB();
+  function cloudSet(path, value){ set(ref(rtdb, path), value).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }
+  function cloudRemove(path){ remove(ref(rtdb, path)).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }
+  function cloudUpdate(path, patch){ update(ref(rtdb, path), patch).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }
+
+  function startCloudSync(){
+    onValue(ref(rtdb, ROOT), function(snapshot){
+      var raw = snapshot.val() || {};
+      db = { leo: normalizePerson(raw.leo, "leo"), joana: normalizePerson(raw.joana, "joana") };
+      saveCache();
+      render();
+    }, function(){
+      toast("Sem conexão com o servidor — mostrando os últimos dados salvos neste aparelho.");
+    });
+  }
+
+  var db = loadCache();
   var identity = getIdentity();
   var draft = { tipo:null, musculos:[], academia:null, academiaCustom:"", peso:"", obs:"", showPeso:false, showCustomGym:false };
 
@@ -507,7 +543,7 @@
         renderShare(me, other) +
         renderHistory(me, meP) +
         renderBackup() +
-        '<p class="footnote">Meta Gym guarda seus dados só neste navegador. Nada é enviado a servidores — a sincronização com '+PEOPLE[other].name+' acontece quando vocês trocam o código de progresso pelo grupo.</p>' +
+        '<p class="footnote">Seus treinos ficam salvos na nuvem e sincronizam automaticamente com '+PEOPLE[other].name+'. A escolha de quem é você neste aparelho fica só aqui, localmente.</p>' +
       '</div>' +
       '<div class="toast" id="toast"></div>';
 
@@ -605,8 +641,7 @@
   function renderCompare(me, other, stats, otherStats){
     function card(who, st){
       var pp = PEOPLE[who];
-      var isMine = who===me;
-      var badge = isMine ? "Ao vivo neste aparelho" : (person(who).importedAt ? "Importado "+new Date(person(who).importedAt).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) : "Ainda sem dados importados");
+      var badge = st.lastDate ? ("Último treino: "+fmtDDMM(st.lastDate).dd+"/"+fmtDDMM(st.lastDate).mm.slice(0,3)) : "Nenhum treino ainda";
       var pct = Math.round(st.pct*100);
       return '<div class="pcard">'+
         '<div class="pname"><span class="pdot" style="background:'+pp.color+'"></span>'+pp.name+'</div>'+
@@ -624,7 +659,7 @@
     var color = PEOPLE[me].color;
     return '<section id="sec-insights"><div class="card">'+
       '<div class="card-title">Insights — '+PEOPLE[me].name+'</div>'+
-      '<div class="card-sub">Baseado nos seus treinos marcados neste aparelho.</div>'+
+      '<div class="card-sub">Baseado nos seus treinos marcados.</div>'+
       '<div class="field-label">Últimas 8 semanas</div>'+
       weekBars(stats.weekly, color) +
       '<div class="field-label" style="margin-top:18px;">Grupos musculares</div>'+
@@ -652,12 +687,9 @@
 
   function renderShare(me, other){
     return '<section id="sec-compartilhar"><div class="card">'+
-      '<div class="card-title">Compartilhar & sincronizar</div>'+
-      '<div class="card-sub">Gere seu código de progresso e mande no grupo do WhatsApp. Quando '+PEOPLE[other].name+' colar o código dela/dele aqui, o comparativo e os insights combinados atualizam.</div>'+
+      '<div class="card-title">Compartilhar</div>'+
+      '<div class="card-sub">Seus treinos já sincronizam automaticamente com '+PEOPLE[other].name+' — o comparativo acima está sempre atualizado. Use o botão abaixo pra mandar um resumo motivacional no grupo do WhatsApp.</div>'+
       '<button class="btn btn-primary btn-block" id="btn-share">Compartilhar meu progresso</button>'+
-      '<div class="field-label">Colar progresso de '+PEOPLE[other].name+'</div>'+
-      '<textarea id="import-input" placeholder="Cole aqui a mensagem ou código que '+PEOPLE[other].name+' compartilhou..."></textarea>'+
-      '<button class="btn btn-block" id="btn-import" style="margin-top:10px;">Atualizar comparativo</button>'+
     '</div></section>';
   }
 
@@ -687,7 +719,7 @@
   function renderBackup(){
     return '<section id="sec-backup"><div class="card">'+
       '<div class="card-title">Backup</div>'+
-      '<div class="card-sub">Baixe uma cópia dos seus dados (e do que foi importado do '+PEOPLE[identity==="leo"?"joana":"leo"].name+').</div>'+
+      '<div class="card-sub">Baixe uma cópia de todos os treinos registrados, seus e de '+PEOPLE[identity==="leo"?"joana":"leo"].name+'.</div>'+
       '<button class="btn btn-block" id="btn-backup" '+(downloadsBlocked?'disabled':'')+'>'+(downloadsBlocked?'Backup indisponível nesta visualização':'Baixar backup (JSON)')+'</button>'+
     '</div></section>';
   }
@@ -700,8 +732,6 @@
         var who = el.getAttribute("data-pick");
         setIdentity(who);
         identity = who;
-        person(who);
-        saveDB();
         render();
       });
     });
@@ -776,21 +806,18 @@
 
     app.querySelectorAll("[data-plan]").forEach(function(el){
       el.addEventListener("click", function(){
-        person(me).profile.plano = el.getAttribute("data-plan");
-        person(me).profile.planOpen = true;
-        saveDB();
+        var planId = el.getAttribute("data-plan");
+        var p = person(me);
+        p.profile.plano = planId;
+        p.profile.planOpen = true;
+        saveCache();
+        cloudUpdate(ROOT+"/"+me+"/profile", { plano: planId, planOpen: true });
         render();
       });
     });
 
     var shareBtn = document.getElementById("btn-share");
     if(shareBtn) shareBtn.addEventListener("click", function(){ shareProgress(me); });
-
-    var importBtn = document.getElementById("btn-import");
-    if(importBtn) importBtn.addEventListener("click", function(){
-      var val = document.getElementById("import-input").value;
-      importPartner(me, val);
-    });
 
     var backupBtn = document.getElementById("btn-backup");
     if(backupBtn) backupBtn.addEventListener("click", function(){ downloadBackup(); });
@@ -801,8 +828,7 @@
     if(!draft.tipo){ toast("Escolha o tipo de treino."); return; }
     if(!academia){ toast("Escolha a academia."); return; }
     if(draft.musculos.length===0){ toast("Selecione ao menos um grupo muscular."); return; }
-    var p = person(me);
-    p.checkins.push({
+    var entry = {
       id: uid(),
       date: todayStr(),
       tipoLabel: draft.tipo,
@@ -811,8 +837,11 @@
       peso: draft.peso ? String(parseFloat(draft.peso)) : "",
       obs: draft.obs.trim(),
       ts: new Date().toISOString()
-    });
-    saveDB();
+    };
+    var p = person(me);
+    p.checkins.push(entry);
+    saveCache();
+    cloudSet(ROOT+"/"+me+"/checkins/"+entry.id, entry);
     draft = { tipo:null, musculos:[], academia:null, academiaCustom:"", peso:"", obs:"", showPeso:false, showCustomGym:false };
     toast("Treino registrado! 💪");
     render();
@@ -827,33 +856,19 @@
     if(!confirm("Remover esse treino marcado?")) return;
     var p = person(me);
     p.checkins = p.checkins.filter(function(c){ return c.id !== id; });
-    saveDB();
+    saveCache();
+    cloudRemove(ROOT+"/"+me+"/checkins/"+id);
     toast("Treino removido.");
     render();
   }
 
-  function buildSharePayload(who){
-    var p = person(who);
-    return { v:1, who: who, exportedAt: new Date().toISOString(), profile: p.profile, checkins: p.checkins };
-  }
-  function encodePayload(obj){
-    return btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
-  }
-  function decodePayload(code){
-    return JSON.parse(decodeURIComponent(escape(atob(code))));
-  }
-
   function shareProgress(me){
     var stats = computeStats(me);
-    var payload = buildSharePayload(me);
-    var code = encodePayload(payload);
     var text = "💪 Meta Gym — progresso de "+PEOPLE[me].name+"\n"+
       "✅ "+stats.count+"/"+GOAL+" treinos em "+stats.year+"\n"+
       "🔥 Sequência atual: "+stats.streak+" dia(s)\n"+
       "📅 Faltam "+stats.daysLeft+" dias para o fim do ano\n\n"+
-      "Abra o Meta Gym e cole isto no campo \"Colar progresso\" para atualizar o comparativo:\n"+
-      APP_URL+"\n"+
-      "CODE:"+code;
+      "Acompanhe no Meta Gym:\n"+APP_URL;
 
     if(navigator.share){
       navigator.share({ title:"Meta Gym", text:text }).catch(function(err){
@@ -871,23 +886,6 @@
     } else {
       window.prompt("Copie o texto abaixo e cole no grupo:", text);
     }
-  }
-
-  function importPartner(me, raw){
-    var other = me==="leo" ? "joana" : "leo";
-    var m = raw.match(/CODE:([A-Za-z0-9+/=]+)/);
-    var code = m ? m[1] : raw.trim();
-    if(!code){ toast("Cole o código de progresso primeiro."); return; }
-    var payload;
-    try{ payload = decodePayload(code); }
-    catch(e){ toast("Código inválido — confira se colou tudo certinho."); return; }
-    if(!payload || !payload.who || !Array.isArray(payload.checkins)){ toast("Código inválido."); return; }
-    if(payload.who === me){ toast("Esse código é o seu próprio progresso — peça o de "+PEOPLE[other].name+"."); return; }
-    if(payload.who !== other){ toast("Código não reconhecido."); return; }
-    db[other] = { profile: payload.profile || emptyPerson().profile, checkins: payload.checkins, importedAt: new Date().toISOString() };
-    saveDB();
-    toast("Progresso de "+PEOPLE[other].name+" atualizado!");
-    render();
   }
 
   function downloadBackup(){
@@ -913,6 +911,7 @@
 
   // ---------- init ----------
   render();
+  startCloudSync();
   if(window.claude && typeof window.claude.use === "function"){
     window.claude.use("downloads").then(function(cap){
       downloadsCap = cap;
@@ -921,7 +920,6 @@
       if(btn){ btn.disabled = downloadsBlocked; btn.textContent = downloadsBlocked ? "Backup indisponível nesta visualização" : "Baixar backup (JSON)"; }
     }).catch(function(){});
   }
-})();
 </script>
 </body>
 </html>
