@@ -623,8 +623,8 @@ var ROOT = "metagym";
         '<button class="btn btn-sm btn-ghost" id="btn-toggle-peso">'+(draft.showPeso ? "− peso" : "+ registrar peso")+'</button>'+
       '</div>'+
       (draft.showPeso ? '<div class="field-label">Peso (kg)</div><input type="number" step="0.1" min="20" max="300" id="peso-input" value="'+escapeHtml(draft.peso)+'" placeholder="ex: 86.5"/>' : '') +
-      '<div class="field-label">Observação (opcional)</div>'+
-      '<textarea id="obs-input" placeholder="Como foi o treino, cargas, sensações...">'+escapeHtml(draft.obs)+'</textarea>';
+      '<div class="field-label">Como foi o treino?</div>'+
+      '<textarea id="obs-input" placeholder="Sensações, energia, dores, cargas, o que notou no corpo hoje...">'+escapeHtml(draft.obs)+'</textarea>';
   }
 
   function renderCheckin(me, done, entry, plan, editing){
@@ -868,9 +868,11 @@ var ROOT = "metagym";
   function submitCheckin(me){
     var academia = draft.showCustomGym ? draft.academiaCustom.trim() : draft.academia;
     var tipoLabel = draft.tipo || (draft.musculos.length ? draft.musculos.join(" + ") : "");
+    var obs = draft.obs.trim();
     if(!academia){ toast("Escolha a academia."); return; }
     if(draft.musculos.length===0){ toast("Selecione ao menos um grupo muscular."); return; }
     if(!tipoLabel){ toast("Escolha o tipo de treino ou os grupos musculares."); return; }
+    if(!obs){ toast("Conta como foi o treino — isso vira o diário de vocês."); return; }
 
     var p = person(me);
 
@@ -884,7 +886,7 @@ var ROOT = "metagym";
         musculos: draft.musculos.slice(),
         academia: academia,
         peso: draft.peso ? String(parseFloat(draft.peso)) : "",
-        obs: draft.obs.trim(),
+        obs: obs,
         ts: (original && original.ts) ? original.ts : new Date().toISOString()
       };
       if(idx>-1) p.checkins[idx] = updated; else p.checkins.push(updated);
@@ -904,7 +906,7 @@ var ROOT = "metagym";
       musculos: draft.musculos.slice(),
       academia: academia,
       peso: draft.peso ? String(parseFloat(draft.peso)) : "",
-      obs: draft.obs.trim(),
+      obs: obs,
       ts: new Date().toISOString()
     };
     p.checkins.push(entry);
