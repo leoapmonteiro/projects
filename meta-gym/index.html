@@ -337,13 +337,16 @@ var ROOT = "metagym";
   function cloudUpdate(path, patch){ update(ref(rtdb, path), patch).catch(function(){ toast("Sem conexão — tente de novo em instantes."); }); }
 
   function startCloudSync(){
-    onValue(ref(rtdb, ROOT), function(snapshot){
-      var raw = snapshot.val() || {};
-      db = { leo: normalizePerson(raw.leo, "leo"), joana: normalizePerson(raw.joana, "joana") };
-      saveCache();
-      render();
-    }, function(){
-      toast("Sem conexão com o servidor — mostrando os últimos dados salvos neste aparelho.");
+    // Two separate listeners: the security rules grant .read/.write at
+    // /metagym/leo and /metagym/joana individually, not at /metagym itself.
+    ["leo","joana"].forEach(function(who){
+      onValue(ref(rtdb, ROOT+"/"+who), function(snapshot){
+        db[who] = normalizePerson(snapshot.val(), who);
+        saveCache();
+        render();
+      }, function(){
+        toast("Sem conexão com o servidor — mostrando os últimos dados salvos neste aparelho.");
+      });
     });
   }
 
