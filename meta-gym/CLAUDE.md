@@ -1,8 +1,19 @@
-# Meta Gym
+# TrilhaFit
 
 App de acompanhamento de treinos para duas pessoas (Leo e Joana), com meta individual
 configurável (padrão 50 treinos) até 31/12 do ano corrente. Distribuído via link direto
 (grupo do WhatsApp), sem sistema de login visível ao usuário.
+
+**Nome do produto**: TrilhaFit — tagline "trilhando sua saúde, junto com a turma".
+Renomeado de "Meta Gym" (nome original) depois de encontrar academias reais usando
+"Meta Gym"/"MetaGym" na Espanha, Colômbia, Chile e México, além de um app cripto-fitness
+com o mesmo nome. "Trilha" foi escolhido, entre outras opções pesquisadas, por estar livre
+no espaço fitness e por encaixar melhor na história da marca (ver `meta-gym-brand` /
+brand book) — o símbolo (check que vira linha ascendente) já era sobre trajetória antes
+mesmo do nome existir. **Nome do repositório/pasta (`meta-gym/`) e da URL pública foram
+mantidos de propósito**, para não quebrar o link já compartilhado no grupo do WhatsApp —
+plumbing técnico (nomes de pasta, chaves do Firebase) é interno e não precisa bater com o
+nome visível da marca.
 
 ## Stack
 
@@ -157,6 +168,34 @@ curl -s -X DELETE "$DB/metagym/leo/_t.json?auth=$TOKEN"           # limpar o tes
   processo de build; funciona bem no `manifest.json` (Chrome/Android), suporte no
   `apple-touch-icon` do iOS é mais inconsistente entre versões — vale checar visualmente
   como fica ao adicionar à tela de início num iPhone.
+
+## Posicionamento e concorrência
+
+A visão de longo prazo (declarada pelo usuário) é crescer de "app do casal" pra plataforma
+de constância com IA para famílias e turmas de amigos, com competição saudável e
+premiação para quem está no caminho certo. Fases, do que está no ar até o mais distante:
+
+1. **Dupla** (no ar) — meta individual, diário obrigatório, comparativo, insights
+   automáticos, badges.
+2. **Família / turma** — trocar os 2 participantes fixos por N por grupo, com ranking
+   coletivo.
+3. **Competição com premiação** — períodos de desafio, pontuação, prêmio pra quem manteve
+   o ritmo (formato do prêmio ainda em aberto).
+4. **IA como treinador pessoal** — evoluir o painel de insights (hoje regra estatística
+   local) pra leitura de padrão mais rica, sem expor "IA" no nome da marca (decisão de
+   marketing: nome carrega emoção, não tecnologia — tech vira obsoleta, marca não deveria).
+
+**Concorrência direta já mapeada** (pesquisa via WebSearch, não é análise formal de
+mercado, mas real o suficiente pra informar decisão de produto):
+
+| App | O que faz | Onde o TrilhaFit é diferente |
+|---|---|---|
+| **Podyo** ("Desafio Fitness") | Tribos, check-in diário, ranking de grupo, desafios coletivos | Diário de treino como dado central (não só check-in binário) + insights automáticos |
+| **Brasa** (dentro do GRAU Club) | Sequência diária, ranking entre amigos, "escudos" de streak, badges | Nasceu pra grupos pequenos/íntimos antes de virar rede social; foco em constância compartilhada |
+| **GymRats** | Ligas entre amigos/colegas, pontuação por treino, recompensas | Sem login, abre por link — pensado pra quem não é early adopter de app de fitness |
+
+Vale reabrir esses três (Podyo, Brasa/GRAU Club, GymRats) antes de desenhar a Fase 2
+(família/turma) — eles já resolveram parte do problema de ranking/gamificação em grupo.
 
 ## Convenções de trabalho neste repo
 
